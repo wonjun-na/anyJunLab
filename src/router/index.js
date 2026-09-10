@@ -19,6 +19,11 @@ const router = createRouter({
       name: 'ddl',
       component: () => import('../views/DsrDtiLtvCalculatorView.vue'),
     },
+    {
+      path: '/addEng',
+      name: 'addEng',
+      component: () => import('../views/AddressEnglishConverter.vue'),
+    },
   ],
 })
 
