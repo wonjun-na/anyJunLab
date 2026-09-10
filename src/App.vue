@@ -1,85 +1,54 @@
-<script setup>
-import { RouterLink, RouterView } from 'vue-router'
-import HelloWorld from './components/HelloWorld.vue'
-</script>
-
 <template>
-  <header>
-    <img alt="Vue logo" class="logo" src="@/assets/logo.svg" width="125" height="125" />
+  <v-app>
+    <!-- 상단 메뉴 -->
+    <v-app-bar elevation="1">
+      <v-container class="d-flex align-center">
+        <v-icon
+          icon="mdi-flask-outline"
+          size="30"
+          class="mr-3"
+        />
 
-    <div class="wrapper">
-      <HelloWorld msg="You did it!!!!!" />
+        <v-app-bar-title class="font-weight-bold">
+          AnyJunLab
+        </v-app-bar-title>
 
-      <nav>
-        <RouterLink to="/">Home</RouterLink>
-        <RouterLink to="/about">About</RouterLink>
-      </nav>
-    </div>
-  </header>
+        <v-spacer />
 
-  <RouterView />
+        <v-btn
+          variant="text"
+          to="/"
+        >
+          홈
+        </v-btn>
+
+        <v-btn
+          variant="text"
+          prepend-icon="mdi-calculator-variant"
+          to="/loan"
+        >
+          대출이자계산기
+        </v-btn>
+      </v-container>
+    </v-app-bar>
+
+    <!-- 가운데 화면 (URL에 맞춰 라우터가 렌더링) -->
+    <v-main>
+      <router-view />
+    </v-main>
+
+    <!-- 하단 Footer -->
+    <v-footer
+      class="text-center d-flex justify-center"
+      border
+    >
+      <span class="text-caption text-medium-emphasis">
+        © 2026 AnyJunLab
+      </span>
+    </v-footer>
+  </v-app>
 </template>
 
-<style scoped>
-header {
-  line-height: 1.5;
-  max-height: 100vh;
-}
-
-.logo {
-  display: block;
-  margin: 0 auto 2rem;
-}
-
-nav {
-  width: 100%;
-  font-size: 12px;
-  text-align: center;
-  margin-top: 2rem;
-}
-
-nav a.router-link-exact-active {
-  color: var(--color-text);
-}
-
-nav a.router-link-exact-active:hover {
-  background-color: transparent;
-}
-
-nav a {
-  display: inline-block;
-  padding: 0 1rem;
-  border-left: 1px solid var(--color-border);
-}
-
-nav a:first-of-type {
-  border: 0;
-}
-
-@media (min-width: 1024px) {
-  header {
-    display: flex;
-    place-items: center;
-    padding-right: calc(var(--section-gap) / 2);
-  }
-
-  .logo {
-    margin: 0 2rem 0 0;
-  }
-
-  header .wrapper {
-    display: flex;
-    place-items: flex-start;
-    flex-wrap: wrap;
-  }
-
-  nav {
-    text-align: left;
-    margin-left: -1rem;
-    font-size: 1rem;
-
-    padding: 1rem 0;
-    margin-top: 1rem;
-  }
-}
-</style>
+<script setup>
+// 라우터가 페이지를 자동으로 제어하므로 스크립트 영역은 비워두셔도 됩니다.
+</script>
