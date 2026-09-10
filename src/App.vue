@@ -9,28 +9,30 @@
           class="mr-3"
         />
 
-        <v-app-bar-title class="font-weight-bold">
-          AnyJunLab
+        <v-app-bar-title class="font-weight-bold text-title-medium text-sm-title-large">
+          <router-link to="/" class="text-decoration-none color-inherit text-high-emphasis">
+            AnyJunLab
+          </router-link>
         </v-app-bar-title>
-
+        
         <v-spacer />
 
-        <v-btn
-          variant="text"
-          to="/"
-        >
-          홈
-        </v-btn>
+        <v-app-bar-nav-icon @click="drawer = !drawer" />
 
-        <v-btn
-          variant="text"
-          prepend-icon="mdi-calculator-variant"
-          to="/loan"
-        >
-          대출이자계산기
-        </v-btn>
       </v-container>
     </v-app-bar>
+
+    <v-navigation-drawer v-model="drawer" location="right" temporary>
+      <v-list nav class="pa-4">
+        <v-list-item
+          prepend-icon="mdi-calculator"
+          title="대출 계산기"
+          value="loan"
+          to="/loan"
+          rounded="lg"
+        />
+      </v-list>
+    </v-navigation-drawer>
 
     <!-- 가운데 화면 (URL에 맞춰 라우터가 렌더링) -->
     <v-main>
@@ -51,4 +53,6 @@
 
 <script setup>
 // 라우터가 페이지를 자동으로 제어하므로 스크립트 영역은 비워두셔도 됩니다.
+import { ref } from 'vue'
+const drawer = ref(false)
 </script>
