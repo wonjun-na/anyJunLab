@@ -24,13 +24,8 @@
 
     <v-navigation-drawer v-model="drawer" location="right" temporary>
       <v-list nav class="pa-4">
-        <v-list-item
-          prepend-icon="mdi-calculator"
-          title="대출 계산기"
-          value="loan"
-          to="/loan"
-          rounded="lg"
-        />
+        <v-list-item prepend-icon="mdi-calculator" title="대출 계산기" value="loan" to="/loan"rounded="lg"/>
+        <v-list-item prepend-icon="mdi-cash-multiple" title="DSR/DTI/LTV" value="loan" to="/ddl"rounded="lg"/>
       </v-list>
     </v-navigation-drawer>
 

@@ -14,6 +14,11 @@ const router = createRouter({
       name: 'loan',
       component: () => import('../views/LoanCalculatorView.vue'),
     },
+    {
+      path: '/ddl',
+      name: 'ddl',
+      component: () => import('../views/DsrDtiLtvCalculatorView.vue'),
+    },
   ],
 })
 
