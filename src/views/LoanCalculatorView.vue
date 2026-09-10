@@ -11,8 +11,8 @@ const loanTerm = ref(30)
 const repaymentType = ref('equal')
 
 const repaymentOptions = [
+    { title: '원리금균등상환', value: 'equal' },    
     { title: '체증식상환', value: 'graduated' },  
-    { title: '원리금균등상환', value: 'equal' },
     { title: '원금균등상환', value: 'principal' },
     { title: '만기일시상환', value: 'bullet' },
 ]
