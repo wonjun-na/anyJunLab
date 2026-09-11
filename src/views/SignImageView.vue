@@ -31,8 +31,6 @@
           rounded="xl"
           class="pa-5 pa-md-7 mb-6"
         >
-
-          <!-- 제목 -->
           <div class="d-flex align-center mb-5">
             <v-icon
               icon="mdi-draw-pen"
@@ -55,7 +53,6 @@
           <!-- 설정 -->
           <v-row class="mb-2">
 
-            <!-- 굵기 -->
             <v-col
               cols="12"
               sm="6"
@@ -66,8 +63,8 @@
 
               <v-slider
                 v-model="lineWidth"
-                min="1"
-                max="8"
+                min="2"
+                max="12"
                 step="0.5"
                 color="primary"
                 thumb-label
@@ -81,7 +78,6 @@
               </v-slider>
             </v-col>
 
-            <!-- 색상 -->
             <v-col
               cols="12"
               sm="6"
@@ -122,24 +118,13 @@
 
           </v-row>
 
-          <!--
-            ★ 중요 ★
-
-            touch-action: none
-
-            이 영역에서 브라우저에게
-            "터치 동작을 스크롤로 사용하지 마라"
-            라고 알려준다.
-
-            별도의 <style> 태그는 사용하지 않는다.
-          -->
+          <!-- Canvas -->
           <v-card
             variant="outlined"
             rounded="lg"
             class="overflow-hidden bg-white mt-4"
             style="touch-action: none; user-select: none; -webkit-user-select: none;"
           >
-
             <canvas
               ref="canvas"
               class="d-block w-100"
@@ -147,12 +132,9 @@
               @pointermove.prevent="pointerMove"
               @pointerup.prevent="pointerUp"
               @pointercancel.prevent="pointerCancel"
-              @pointerleave="pointerLeave"
             />
-
           </v-card>
 
-          <!-- 안내 -->
           <v-alert
             type="info"
             variant="tonal"
@@ -170,7 +152,7 @@
               color="grey-darken-1"
               variant="outlined"
               prepend-icon="mdi-undo"
-              :disabled="history.length === 0"
+              :disabled="history.length <= 1"
               @click="undo"
             >
               실행 취소
@@ -231,7 +213,6 @@
             rounded="lg"
             class="pa-4 bg-grey-lighten-4"
           >
-
             <div
               v-if="signatureImage"
               class="d-flex justify-center"
@@ -257,7 +238,6 @@
                 아직 작성된 서명이 없습니다.
               </div>
             </div>
-
           </v-card>
         </v-card>
 
@@ -267,7 +247,6 @@
           rounded="xl"
           class="pa-5 pa-md-7"
         >
-
           <div class="d-flex align-center mb-5">
             <v-icon
               icon="mdi-help-circle-outline"
@@ -310,8 +289,7 @@
                 </div>
 
                 <div class="text-body-2">
-                  서명 영역에서 손가락이나 마우스로
-                  직접 서명을 작성합니다.
+                  서명 영역에서 손가락이나 마우스로 직접 서명을 작성합니다.
                 </div>
               </v-card>
             </v-col>
@@ -343,8 +321,7 @@
                 </div>
 
                 <div class="text-body-2">
-                  펜 굵기와 색상을 원하는 스타일로
-                  조절할 수 있습니다.
+                  펜 굵기와 색상을 원하는 스타일로 조절할 수 있습니다.
                 </div>
               </v-card>
             </v-col>
@@ -389,25 +366,23 @@
   </v-app>
 </template>
 
-
 <script setup>
 
 import {
   ref,
   onMounted,
   onBeforeUnmount,
-  nextTick,
-  watch
+  nextTick
 } from 'vue'
 
 
 /* =========================================================
- * 기본값
+ * 기본 설정
  * ======================================================= */
 
 const canvas = ref(null)
 
-const lineWidth = ref(4)
+const lineWidth = ref(6)
 
 const lineColor = ref('#222222')
 
@@ -417,21 +392,19 @@ const isEmpty = ref(true)
 
 const signatureImage = ref('')
 
-
 /*
- * Undo history
+ * 초기 빈 상태부터 저장
  *
- * 각각의 완료된 상태를 저장한다.
+ * history[0] = 빈 캔버스
+ * history[1] = 첫 번째 획
+ * history[2] = 두 번째 획
+ * ...
  */
 const history = ref([])
 
 
-/*
- * Canvas 실제 해상도
- */
 const WIDTH = 1600
 const HEIGHT = 600
-
 
 let ctx = null
 
@@ -464,20 +437,22 @@ const initCanvas = async () => {
     )
 
   ctx.lineCap = 'round'
-
   ctx.lineJoin = 'round'
-
   ctx.imageSmoothingEnabled = true
 
-  /*
-   * 빈 상태에서는 history에 저장하지 않는다.
-   */
   ctx.clearRect(
     0,
     0,
     WIDTH,
     HEIGHT
   )
+
+  /*
+   * 최초 상태
+   */
+  history.value = [
+    canvas.value.toDataURL('image/png')
+  ]
 
   updatePreview()
 
@@ -489,7 +464,7 @@ const initCanvas = async () => {
 
 
 /* =========================================================
- * 좌표 계산
+ * 좌표 변환
  * ======================================================= */
 
 const getPoint = (event) => {
@@ -504,7 +479,6 @@ const getPoint = (event) => {
     HEIGHT / rect.height
 
   return {
-
     x:
       (event.clientX - rect.left) *
       scaleX,
@@ -516,16 +490,10 @@ const getPoint = (event) => {
     time:
       performance.now(),
 
-    /*
-     * 스타일러스는 실제 pressure 사용
-     *
-     * 손가락 / 마우스는 0.5 정도를 사용
-     */
     pressure:
       event.pressure > 0
         ? event.pressure
         : 0.5
-
   }
 }
 
@@ -543,36 +511,28 @@ const pointerDown = (event) => {
   activePointerId =
     event.pointerId
 
-  /*
-   * 브라우저가 이 포인터를 계속
-   * Canvas에서 추적하도록 한다.
-   */
   try {
-
     canvas.value.setPointerCapture(
       event.pointerId
     )
-
   } catch {
     // 무시
   }
 
-
   isDrawing.value = true
-
   isEmpty.value = false
 
   stroke = []
-
 
   const point =
     getPoint(event)
 
   stroke.push(point)
 
-
   /*
    * 시작점
+   *
+   * 이전 코드보다 크게 시작
    */
   ctx.beginPath()
 
@@ -583,8 +543,8 @@ const pointerDown = (event) => {
     point.x,
     point.y,
     Math.max(
-      0.8,
-      lineWidth.value * 0.35
+      1.2,
+      lineWidth.value * 0.48
     ),
     0,
     Math.PI * 2
@@ -607,7 +567,6 @@ const pointerMove = (event) => {
     return
   }
 
-
   const point =
     getPoint(event)
 
@@ -616,12 +575,10 @@ const pointerMove = (event) => {
       stroke.length - 1
     ]
 
-
   if (!previous) {
     stroke.push(point)
     return
   }
-
 
   const distance =
     Math.hypot(
@@ -629,27 +586,21 @@ const pointerMove = (event) => {
       point.y - previous.y
     )
 
-
   /*
-   * 너무 작은 움직임은 무시
+   * 너무 작은 움직임만 제거
    */
-  if (distance < 0.8) {
+  if (distance < 0.5) {
     return
   }
 
-
   stroke.push(point)
 
-
-  /*
-   * 최근 구간 렌더링
-   */
   renderLatestSegment()
 }
 
 
 /* =========================================================
- * 자연스러운 곡선
+ * 부드러운 곡선 렌더링
  * ======================================================= */
 
 const renderLatestSegment = () => {
@@ -657,11 +608,9 @@ const renderLatestSegment = () => {
   const count =
     stroke.length
 
-
   if (count < 2) {
     return
   }
-
 
   const p0 =
     stroke[
@@ -697,11 +646,9 @@ const renderLatestSegment = () => {
 
 
   /*
-   * Catmull-Rom 방식으로
-   * 부드러운 Bezier control point 생성
+   * Catmull-Rom → Bezier
    */
   const cp1 = {
-
     x:
       p1.x +
       (p2.x - p0.x) / 6,
@@ -709,12 +656,10 @@ const renderLatestSegment = () => {
     y:
       p1.y +
       (p2.y - p0.y) / 6
-
   }
 
 
   const cp2 = {
-
     x:
       p2.x -
       (p3.x - p1.x) / 6,
@@ -722,12 +667,11 @@ const renderLatestSegment = () => {
     y:
       p2.y -
       (p3.y - p1.y) / 6
-
   }
 
 
   /*
-   * 이동 속도
+   * 속도
    */
   const distance =
     Math.hypot(
@@ -735,59 +679,62 @@ const renderLatestSegment = () => {
       p2.y - p1.y
     )
 
-
   const elapsed =
     Math.max(
       1,
       p2.time - p1.time
     )
 
-
   const speed =
     distance / elapsed
 
 
   /*
-   * 속도가 빠르면 얇게
-   * 속도가 느리면 두껍게
+   * 이전 코드보다 속도에 따른
+   * 굵기 변화 폭을 크게 줄였다.
+   *
+   * 빠르게 써도 너무 얇아지지 않는다.
    */
-  let speedPressure =
-    1.15 -
-    speed * 0.08
+  let speedFactor =
+    1.05 -
+    speed * 0.025
 
-
-  speedPressure =
+  speedFactor =
     Math.max(
-      0.38,
+      0.72,
       Math.min(
-        1.2,
-        speedPressure
+        1.12,
+        speedFactor
       )
     )
 
 
   /*
-   * 실제 스타일러스 필압
+   * 필압
+   *
+   * 손가락/마우스는 기본적으로 0.5
    */
   const realPressure =
     p2.pressure || 0.5
 
 
-  const pressure =
-    speedPressure *
-    (
-      0.75 +
-      realPressure * 0.5
-    )
+  const pressureFactor =
+    0.88 +
+    realPressure * 0.24
 
 
+  /*
+   * 최종 굵기
+   *
+   * 기존보다 확실히 두껍게
+   */
   const width =
     lineWidth.value *
-    pressure
+    speedFactor *
+    pressureFactor
 
 
   const STEPS = 14
-
 
   let previousX =
     p1.x
@@ -848,14 +795,18 @@ const renderLatestSegment = () => {
         p2.y
 
 
+    /*
+     * 가운데가 살짝 두껍고
+     * 양쪽이 자연스럽게 연결
+     */
     const thickness =
       width *
       (
-        0.92 +
+        0.97 +
         Math.sin(
           t * Math.PI
         ) *
-        0.08
+        0.05
       )
 
 
@@ -869,14 +820,13 @@ const renderLatestSegment = () => {
 
 
     previousX = x
-
     previousY = y
   }
 }
 
 
 /* =========================================================
- * 선 하나 렌더링
+ * 선 렌더링
  * ======================================================= */
 
 const drawLine = (
@@ -894,7 +844,6 @@ const drawLine = (
     return
   }
 
-
   ctx.beginPath()
 
   ctx.strokeStyle =
@@ -902,7 +851,7 @@ const drawLine = (
 
   ctx.lineWidth =
     Math.max(
-      0.7,
+      1.5,
       width
     )
 
@@ -911,7 +860,6 @@ const drawLine = (
 
   ctx.lineJoin =
     'round'
-
 
   ctx.moveTo(
     x1,
@@ -929,13 +877,14 @@ const drawLine = (
 
 /* =========================================================
  * Pointer 종료
+ *
+ * ★ 여기서 더 이상 추가 선을 그리지 않는다.
  * ======================================================= */
 
 const pointerUp = (event) => {
 
   if (
-    event.pointerId !==
-    activePointerId
+    event.pointerId !== activePointerId
   ) {
     return
   }
@@ -951,32 +900,12 @@ const pointerUp = (event) => {
 const pointerCancel = (event) => {
 
   if (
-    event.pointerId !==
-    activePointerId
+    event.pointerId !== activePointerId
   ) {
     return
   }
 
   finishStroke(event)
-}
-
-
-/* =========================================================
- * Pointer가 영역 밖으로 나간 경우
- *
- * setPointerCapture가 잡혀있기 때문에
- * 실제 손가락이 영역 밖으로 나가도 계속 추적된다.
- * ======================================================= */
-
-const pointerLeave = () => {
-
-  /*
-   * 아무것도 하지 않는다.
-   *
-   * 여기서 stroke를 종료하면
-   * 손가락으로 크게 움직일 때
-   * 획이 끊어질 수 있다.
-   */
 }
 
 
@@ -990,38 +919,31 @@ const finishStroke = (event) => {
     return
   }
 
-
   isDrawing.value = false
 
-
   try {
-
     canvas.value.releasePointerCapture(
       event.pointerId
     )
-
   } catch {
     // 무시
   }
 
-
   /*
-   * 마지막 획 처리
+   * ★ 중요
+   *
+   * 기존의 finishStrokeCap() 제거
+   *
+   * 손을 뗐을 때 추가로 선을 그리지 않는다.
    */
-  finishStrokeCap()
 
 
   /*
-   * 현재 상태 저장
+   * 현재 상태를 History에 저장
    */
   saveHistory()
 
-
-  /*
-   * 미리보기 갱신
-   */
   updatePreview()
-
 
   stroke = []
 
@@ -1030,98 +952,7 @@ const finishStroke = (event) => {
 
 
 /* =========================================================
- * 마지막 부분 자연스럽게 처리
- * ======================================================= */
-
-const finishStrokeCap = () => {
-
-  if (stroke.length < 2) {
-    return
-  }
-
-
-  const last =
-    stroke[
-      stroke.length - 1
-    ]
-
-  const previous =
-    stroke[
-      stroke.length - 2
-    ]
-
-
-  const angle =
-    Math.atan2(
-      last.y - previous.y,
-      last.x - previous.x
-    )
-
-
-  const length = 10
-
-  const steps = 8
-
-
-  let x1 =
-    last.x
-
-  let y1 =
-    last.y
-
-
-  for (
-    let i = 1;
-    i <= steps;
-    i++
-  ) {
-
-    const t =
-      i / steps
-
-
-    const distance =
-      length * t
-
-
-    const x =
-      last.x +
-      Math.cos(angle) *
-      distance
-
-
-    const y =
-      last.y +
-      Math.sin(angle) *
-      distance
-
-
-    const width =
-      lineWidth.value *
-      (
-        0.35 -
-        0.30 * t
-      )
-
-
-    drawLine(
-      x1,
-      y1,
-      x,
-      y,
-      width
-    )
-
-
-    x1 = x
-
-    y1 = y
-  }
-}
-
-
-/* =========================================================
- * History
+ * History 저장
  * ======================================================= */
 
 const saveHistory = () => {
@@ -1130,76 +961,65 @@ const saveHistory = () => {
     return
   }
 
-
   const image =
     canvas.value.toDataURL(
       'image/png'
     )
 
-
   history.value.push(image)
 
-
+  /*
+   * 최대 30단계
+   */
   if (
-    history.value.length > 30
+    history.value.length > 31
   ) {
-    history.value.shift()
+    history.value.splice(
+      1,
+      1
+    )
   }
 }
 
 
 /* =========================================================
  * Undo
+ *
+ * 마지막 상태를 제거하고
+ * 그 전 상태를 복구한다.
  * ======================================================= */
 
 const undo = () => {
 
   if (
     !ctx ||
-    history.value.length === 0
+    history.value.length <= 1
   ) {
     return
   }
-
 
   /*
    * 현재 상태 제거
    */
   history.value.pop()
 
-
-  /*
-   * 이전 상태가 없으면
-   * 완전히 빈 상태
-   */
-  if (
-    history.value.length === 0
-  ) {
-
-    ctx.clearRect(
-      0,
-      0,
-      WIDTH,
-      HEIGHT
-    )
-
-    isEmpty.value = true
-
-    signatureImage.value = ''
-
-    return
-  }
-
-
   const previous =
     history.value[
       history.value.length - 1
     ]
 
+  restoreImage(previous)
+}
+
+
+/* =========================================================
+ * 이미지 복구
+ * ======================================================= */
+
+const restoreImage = (src) => {
 
   const image =
     new Image()
-
 
   image.onload = () => {
 
@@ -1210,7 +1030,6 @@ const undo = () => {
       HEIGHT
     )
 
-
     ctx.drawImage(
       image,
       0,
@@ -1219,22 +1038,25 @@ const undo = () => {
       HEIGHT
     )
 
+    /*
+     * 최초 빈 상태인지 확인
+     */
+    isEmpty.value =
+      history.value.length <= 1
 
-    isEmpty.value = false
-
-    updatePreview()
+    if (isEmpty.value) {
+      signatureImage.value = ''
+    } else {
+      updatePreview()
+    }
   }
 
-
-  image.src = previous
+  image.src = src
 }
 
 
 /* =========================================================
  * 전체 지우기
- *
- * 지우기 직전 상태를 저장하므로
- * Undo로 복구 가능
  * ======================================================= */
 
 const clearCanvas = () => {
@@ -1246,15 +1068,8 @@ const clearCanvas = () => {
     return
   }
 
-
   /*
-   * 현재 상태 저장
-   */
-  saveHistory()
-
-
-  /*
-   * 전체 삭제
+   * 화면을 먼저 지운다.
    */
   ctx.clearRect(
     0,
@@ -1263,10 +1078,24 @@ const clearCanvas = () => {
     HEIGHT
   )
 
-
   isEmpty.value = true
 
   signatureImage.value = ''
+
+  /*
+   * ★ 빈 상태를 History에 추가
+   *
+   * 이렇게 해야
+   *
+   * 서명
+   * ↓
+   * 전체 지우기
+   * ↓
+   * Undo
+   *
+   * 했을 때 서명이 복구된다.
+   */
+  saveHistory()
 }
 
 
@@ -1280,12 +1109,10 @@ const updatePreview = () => {
     return
   }
 
-
   if (isEmpty.value) {
     signatureImage.value = ''
     return
   }
-
 
   signatureImage.value =
     canvas.value.toDataURL(
@@ -1307,55 +1134,30 @@ const downloadSignature = () => {
     return
   }
 
-
   const image =
     canvas.value.toDataURL(
       'image/png'
     )
 
-
   const link =
     document.createElement('a')
-
 
   link.download =
     'my-signature.png'
 
-
   link.href =
     image
-
 
   document.body.appendChild(
     link
   )
 
-
   link.click()
-
 
   document.body.removeChild(
     link
   )
 }
-
-
-/* =========================================================
- * 색상 변경
- * ======================================================= */
-
-watch(
-  lineColor,
-  () => {
-
-    if (!ctx) {
-      return
-    }
-
-    ctx.strokeStyle =
-      lineColor.value
-  }
-)
 
 
 /* =========================================================
