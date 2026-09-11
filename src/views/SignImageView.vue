@@ -31,7 +31,8 @@
           rounded="xl"
           class="pa-5 pa-md-7 mb-6"
         >
-          <!-- 카드 제목 -->
+
+          <!-- 제목 -->
           <div class="d-flex align-center mb-5">
             <v-icon
               icon="mdi-draw-pen"
@@ -46,7 +47,7 @@
               </div>
 
               <div class="text-body-2 text-grey-darken-1">
-                아래 영역에 자연스럽게 서명을 작성해주세요.
+                아래 영역에 손가락이나 마우스로 서명을 작성해주세요.
               </div>
             </div>
           </div>
@@ -54,7 +55,7 @@
           <!-- 설정 -->
           <v-row class="mb-2">
 
-            <!-- 펜 굵기 -->
+            <!-- 굵기 -->
             <v-col
               cols="12"
               sm="6"
@@ -80,7 +81,7 @@
               </v-slider>
             </v-col>
 
-            <!-- 펜 색상 -->
+            <!-- 색상 -->
             <v-col
               cols="12"
               sm="6"
@@ -118,22 +119,37 @@
                 </v-card>
               </v-menu>
             </v-col>
+
           </v-row>
 
-          <!-- 서명 영역 -->
+          <!--
+            ★ 중요 ★
+
+            touch-action: none
+
+            이 영역에서 브라우저에게
+            "터치 동작을 스크롤로 사용하지 마라"
+            라고 알려준다.
+
+            별도의 <style> 태그는 사용하지 않는다.
+          -->
           <v-card
             variant="outlined"
             rounded="lg"
             class="overflow-hidden bg-white mt-4"
+            style="touch-action: none; user-select: none; -webkit-user-select: none;"
           >
+
             <canvas
               ref="canvas"
               class="d-block w-100"
-              @pointerdown="pointerDown"
-              @pointermove="pointerMove"
-              @pointerup="pointerUp"
-              @pointercancel="pointerCancel"
+              @pointerdown.prevent="pointerDown"
+              @pointermove.prevent="pointerMove"
+              @pointerup.prevent="pointerUp"
+              @pointercancel.prevent="pointerCancel"
+              @pointerleave="pointerLeave"
             />
+
           </v-card>
 
           <!-- 안내 -->
@@ -144,9 +160,7 @@
             icon="mdi-information-outline"
             class="mt-4"
           >
-            마우스나 손가락으로 직접 그려주세요.
-            천천히 그릴 때는 조금 두껍게, 빠르게 그릴 때는
-            조금 가늘게 표현됩니다.
+            손가락으로 서명 영역을 그리는 동안에는 페이지가 스크롤되지 않습니다.
           </v-alert>
 
           <!-- 버튼 -->
@@ -217,6 +231,7 @@
             rounded="lg"
             class="pa-4 bg-grey-lighten-4"
           >
+
             <div
               v-if="signatureImage"
               class="d-flex justify-center"
@@ -242,6 +257,7 @@
                 아직 작성된 서명이 없습니다.
               </div>
             </div>
+
           </v-card>
         </v-card>
 
@@ -251,6 +267,7 @@
           rounded="xl"
           class="pa-5 pa-md-7"
         >
+
           <div class="d-flex align-center mb-5">
             <v-icon
               icon="mdi-help-circle-outline"
@@ -293,8 +310,8 @@
                 </div>
 
                 <div class="text-body-2">
-                  서명 영역에서 마우스나 손가락으로
-                  자연스럽게 서명을 작성합니다.
+                  서명 영역에서 손가락이나 마우스로
+                  직접 서명을 작성합니다.
                 </div>
               </v-card>
             </v-col>
@@ -326,7 +343,7 @@
                 </div>
 
                 <div class="text-body-2">
-                  펜의 굵기와 색상을 원하는 스타일로
+                  펜 굵기와 색상을 원하는 스타일로
                   조절할 수 있습니다.
                 </div>
               </v-card>
@@ -359,8 +376,7 @@
                 </div>
 
                 <div class="text-body-2">
-                  완성된 서명을 PNG 이미지로 저장하여
-                  문서나 이미지에 사용할 수 있습니다.
+                  완성된 서명을 투명 PNG로 저장합니다.
                 </div>
               </v-card>
             </v-col>
@@ -373,7 +389,9 @@
   </v-app>
 </template>
 
+
 <script setup>
+
 import {
   ref,
   onMounted,
@@ -384,33 +402,32 @@ import {
 
 
 /* =========================================================
- * 기본 설정
+ * 기본값
  * ======================================================= */
 
 const canvas = ref(null)
 
 const lineWidth = ref(4)
+
 const lineColor = ref('#222222')
 
 const isDrawing = ref(false)
+
 const isEmpty = ref(true)
 
 const signatureImage = ref('')
 
+
 /*
- * Undo용 상태
+ * Undo history
  *
- * 한 번의 서명 획이 끝날 때마다
- * 캔버스 전체 이미지를 저장한다.
+ * 각각의 완료된 상태를 저장한다.
  */
 const history = ref([])
 
 
 /*
- * 실제 저장용 해상도
- *
- * 화면보다 크게 만들어서
- * PNG 저장 시 선명하게 만든다.
+ * Canvas 실제 해상도
  */
 const WIDTH = 1600
 const HEIGHT = 600
@@ -418,14 +435,8 @@ const HEIGHT = 600
 
 let ctx = null
 
-/*
- * 현재 그리고 있는 획
- */
 let stroke = []
 
-/*
- * 현재 Pointer ID
- */
 let activePointerId = null
 
 
@@ -434,30 +445,41 @@ let activePointerId = null
  * ======================================================= */
 
 const initCanvas = async () => {
+
   await nextTick()
 
   if (!canvas.value) {
     return
   }
 
-  /*
-   * 실제 캔버스 해상도
-   */
   canvas.value.width = WIDTH
   canvas.value.height = HEIGHT
 
-  ctx = canvas.value.getContext('2d', {
-    alpha: true
-  })
+  ctx =
+    canvas.value.getContext(
+      '2d',
+      {
+        alpha: true
+      }
+    )
 
-  /*
-   * 기본 펜 설정
-   */
   ctx.lineCap = 'round'
+
   ctx.lineJoin = 'round'
+
   ctx.imageSmoothingEnabled = true
 
-  clearCanvas(false)
+  /*
+   * 빈 상태에서는 history에 저장하지 않는다.
+   */
+  ctx.clearRect(
+    0,
+    0,
+    WIDTH,
+    HEIGHT
+  )
+
+  updatePreview()
 
   window.addEventListener(
     'resize',
@@ -467,10 +489,11 @@ const initCanvas = async () => {
 
 
 /* =========================================================
- * 좌표 변환
+ * 좌표 계산
  * ======================================================= */
 
 const getPoint = (event) => {
+
   const rect =
     canvas.value.getBoundingClientRect()
 
@@ -481,6 +504,7 @@ const getPoint = (event) => {
     HEIGHT / rect.height
 
   return {
+
     x:
       (event.clientX - rect.left) *
       scaleX,
@@ -492,51 +516,63 @@ const getPoint = (event) => {
     time:
       performance.now(),
 
+    /*
+     * 스타일러스는 실제 pressure 사용
+     *
+     * 손가락 / 마우스는 0.5 정도를 사용
+     */
     pressure:
       event.pressure > 0
         ? event.pressure
         : 0.5
+
   }
 }
 
 
 /* =========================================================
- * Pointer 시작
+ * 그리기 시작
  * ======================================================= */
 
 const pointerDown = (event) => {
+
   if (!ctx) {
     return
   }
 
-  event.preventDefault()
-
   activePointerId =
     event.pointerId
 
+  /*
+   * 브라우저가 이 포인터를 계속
+   * Canvas에서 추적하도록 한다.
+   */
   try {
+
     canvas.value.setPointerCapture(
       event.pointerId
     )
+
   } catch {
     // 무시
   }
 
+
   isDrawing.value = true
+
   isEmpty.value = false
 
   stroke = []
+
 
   const point =
     getPoint(event)
 
   stroke.push(point)
 
+
   /*
    * 시작점
-   *
-   * 실제 펜을 종이에 대는 느낌을 위해
-   * 작은 원으로 시작한다.
    */
   ctx.beginPath()
 
@@ -548,7 +584,7 @@ const pointerDown = (event) => {
     point.y,
     Math.max(
       0.8,
-      lineWidth.value * 0.32
+      lineWidth.value * 0.35
     ),
     0,
     Math.PI * 2
@@ -559,10 +595,11 @@ const pointerDown = (event) => {
 
 
 /* =========================================================
- * Pointer 이동
+ * 그리는 중
  * ======================================================= */
 
 const pointerMove = (event) => {
+
   if (
     !isDrawing.value ||
     event.pointerId !== activePointerId
@@ -570,75 +607,101 @@ const pointerMove = (event) => {
     return
   }
 
-  event.preventDefault()
 
   const point =
     getPoint(event)
 
   const previous =
-    stroke[stroke.length - 1]
+    stroke[
+      stroke.length - 1
+    ]
 
-  /*
-   * 너무 가까운 좌표는 무시한다.
-   *
-   * 마우스 떨림을 줄이는 역할.
-   */
+
+  if (!previous) {
+    stroke.push(point)
+    return
+  }
+
+
   const distance =
     Math.hypot(
       point.x - previous.x,
       point.y - previous.y
     )
 
-  if (distance < 1.2) {
+
+  /*
+   * 너무 작은 움직임은 무시
+   */
+  if (distance < 0.8) {
     return
   }
 
+
   stroke.push(point)
 
+
   /*
-   * 최근 획을 부드럽게 렌더링
+   * 최근 구간 렌더링
    */
   renderLatestSegment()
 }
 
 
 /* =========================================================
- * 부드러운 획 렌더링
- *
- * 핵심 부분
+ * 자연스러운 곡선
  * ======================================================= */
 
 const renderLatestSegment = () => {
+
   const count =
     stroke.length
+
 
   if (count < 2) {
     return
   }
 
-  /*
-   * 최소 4개의 점을 이용한다.
-   */
+
   const p0 =
-    stroke[Math.max(0, count - 4)]
+    stroke[
+      Math.max(
+        0,
+        count - 4
+      )
+    ]
 
   const p1 =
-    stroke[Math.max(0, count - 3)]
+    stroke[
+      Math.max(
+        0,
+        count - 3
+      )
+    ]
 
   const p2 =
-    stroke[Math.max(0, count - 2)]
+    stroke[
+      Math.max(
+        0,
+        count - 2
+      )
+    ]
 
   const p3 =
-    stroke[Math.max(0, count - 1)]
+    stroke[
+      Math.max(
+        0,
+        count - 1
+      )
+    ]
 
 
   /*
-   * Catmull-Rom → Bezier
-   *
-   * 마우스 좌표를 그대로 연결하지 않고
-   * 주변 좌표를 이용해 곡선을 만든다.
+   * Catmull-Rom 방식으로
+   * 부드러운 Bezier control point 생성
    */
   const cp1 = {
+
     x:
       p1.x +
       (p2.x - p0.x) / 6,
@@ -646,9 +709,12 @@ const renderLatestSegment = () => {
     y:
       p1.y +
       (p2.y - p0.y) / 6
+
   }
 
+
   const cp2 = {
+
     x:
       p2.x -
       (p3.x - p1.x) / 6,
@@ -656,11 +722,12 @@ const renderLatestSegment = () => {
     y:
       p2.y -
       (p3.y - p1.y) / 6
+
   }
 
 
   /*
-   * 속도 계산
+   * 이동 속도
    */
   const distance =
     Math.hypot(
@@ -668,60 +735,59 @@ const renderLatestSegment = () => {
       p2.y - p1.y
     )
 
-  const time =
+
+  const elapsed =
     Math.max(
       1,
       p2.time - p1.time
     )
 
+
   const speed =
-    distance / time
+    distance / elapsed
 
 
   /*
-   * 압력 계산
-   *
-   * 느림  → 두꺼움
-   * 빠름  → 얇음
+   * 속도가 빠르면 얇게
+   * 속도가 느리면 두껍게
    */
-  let pressure =
+  let speedPressure =
     1.15 -
     speed * 0.08
 
 
-  pressure =
+  speedPressure =
     Math.max(
       0.38,
       Math.min(
         1.2,
-        pressure
+        speedPressure
       )
     )
 
 
   /*
-   * 실제 펜 두께
-   *
-   * Pointer 압력도 지원
+   * 실제 스타일러스 필압
    */
-  const pointerPressure =
+  const realPressure =
     p2.pressure || 0.5
 
-  const pressureMix =
-    0.75 +
-    pointerPressure * 0.5
+
+  const pressure =
+    speedPressure *
+    (
+      0.75 +
+      realPressure * 0.5
+    )
+
 
   const width =
     lineWidth.value *
-    pressure *
-    pressureMix
+    pressure
 
 
-  /*
-   * 곡선을 여러 조각으로 나누어
-   * 굵기 변화를 자연스럽게 만든다.
-   */
-  const STEPS = 12
+  const STEPS = 14
+
 
   let previousX =
     p1.x
@@ -729,16 +795,19 @@ const renderLatestSegment = () => {
   let previousY =
     p1.y
 
+
   for (
     let i = 1;
     i <= STEPS;
     i++
   ) {
+
     const t =
       i / STEPS
 
     const mt =
       1 - t
+
 
     /*
      * Cubic Bezier
@@ -760,6 +829,7 @@ const renderLatestSegment = () => {
         t *
         p2.x
 
+
     const y =
       mt * mt * mt * p1.y +
       3 *
@@ -778,17 +848,14 @@ const renderLatestSegment = () => {
         p2.y
 
 
-    /*
-     * 획 중앙은 살짝 두껍게,
-     * 연결 부분은 자연스럽게.
-     */
     const thickness =
       width *
       (
-        0.90 +
+        0.92 +
         Math.sin(
           t * Math.PI
-        ) * 0.10
+        ) *
+        0.08
       )
 
 
@@ -800,14 +867,16 @@ const renderLatestSegment = () => {
       thickness
     )
 
+
     previousX = x
+
     previousY = y
   }
 }
 
 
 /* =========================================================
- * 아주 짧은 선 하나
+ * 선 하나 렌더링
  * ======================================================= */
 
 const drawLine = (
@@ -817,15 +886,14 @@ const drawLine = (
   y2,
   width
 ) => {
-  const distance =
-    Math.hypot(
-      x2 - x1,
-      y2 - y1
-    )
 
-  if (distance <= 0) {
+  if (
+    x1 === x2 &&
+    y1 === y2
+  ) {
     return
   }
+
 
   ctx.beginPath()
 
@@ -843,6 +911,7 @@ const drawLine = (
 
   ctx.lineJoin =
     'round'
+
 
   ctx.moveTo(
     x1,
@@ -863,17 +932,15 @@ const drawLine = (
  * ======================================================= */
 
 const pointerUp = (event) => {
+
   if (
-    !isDrawing.value ||
-    event.pointerId !== activePointerId
+    event.pointerId !==
+    activePointerId
   ) {
     return
   }
 
-  event.preventDefault()
-
   finishStroke(event)
-
 }
 
 
@@ -882,8 +949,10 @@ const pointerUp = (event) => {
  * ======================================================= */
 
 const pointerCancel = (event) => {
+
   if (
-    event.pointerId !== activePointerId
+    event.pointerId !==
+    activePointerId
   ) {
     return
   }
@@ -893,34 +962,66 @@ const pointerCancel = (event) => {
 
 
 /* =========================================================
+ * Pointer가 영역 밖으로 나간 경우
+ *
+ * setPointerCapture가 잡혀있기 때문에
+ * 실제 손가락이 영역 밖으로 나가도 계속 추적된다.
+ * ======================================================= */
+
+const pointerLeave = () => {
+
+  /*
+   * 아무것도 하지 않는다.
+   *
+   * 여기서 stroke를 종료하면
+   * 손가락으로 크게 움직일 때
+   * 획이 끊어질 수 있다.
+   */
+}
+
+
+/* =========================================================
  * 획 종료
  * ======================================================= */
 
 const finishStroke = (event) => {
+
+  if (!isDrawing.value) {
+    return
+  }
+
+
   isDrawing.value = false
 
+
   try {
+
     canvas.value.releasePointerCapture(
       event.pointerId
     )
+
   } catch {
     // 무시
   }
 
+
   /*
-   * 마지막 부분을 자연스럽게 마무리
+   * 마지막 획 처리
    */
   finishStrokeCap()
 
+
   /*
-   * Undo 저장
+   * 현재 상태 저장
    */
   saveHistory()
 
+
   /*
-   * 미리보기
+   * 미리보기 갱신
    */
   updatePreview()
+
 
   stroke = []
 
@@ -929,13 +1030,15 @@ const finishStroke = (event) => {
 
 
 /* =========================================================
- * 획 끝부분
+ * 마지막 부분 자연스럽게 처리
  * ======================================================= */
 
 const finishStrokeCap = () => {
+
   if (stroke.length < 2) {
     return
   }
+
 
   const last =
     stroke[
@@ -947,18 +1050,18 @@ const finishStrokeCap = () => {
       stroke.length - 2
     ]
 
+
   const angle =
     Math.atan2(
       last.y - previous.y,
       last.x - previous.x
     )
 
-  /*
-   * 끝으로 갈수록 얇아진다.
-   */
+
   const length = 10
 
   const steps = 8
+
 
   let x1 =
     last.x
@@ -966,26 +1069,32 @@ const finishStrokeCap = () => {
   let y1 =
     last.y
 
+
   for (
     let i = 1;
     i <= steps;
     i++
   ) {
+
     const t =
       i / steps
 
+
     const distance =
       length * t
+
 
     const x =
       last.x +
       Math.cos(angle) *
       distance
 
+
     const y =
       last.y +
       Math.sin(angle) *
       distance
+
 
     const width =
       lineWidth.value *
@@ -993,6 +1102,7 @@ const finishStrokeCap = () => {
         0.35 -
         0.30 * t
       )
+
 
     drawLine(
       x1,
@@ -1002,31 +1112,34 @@ const finishStrokeCap = () => {
       width
     )
 
+
     x1 = x
+
     y1 = y
   }
 }
 
 
 /* =========================================================
- * Undo 저장
+ * History
  * ======================================================= */
 
 const saveHistory = () => {
+
   if (!canvas.value) {
     return
   }
+
 
   const image =
     canvas.value.toDataURL(
       'image/png'
     )
 
+
   history.value.push(image)
 
-  /*
-   * 최대 30단계
-   */
+
   if (
     history.value.length > 30
   ) {
@@ -1040,6 +1153,7 @@ const saveHistory = () => {
  * ======================================================= */
 
 const undo = () => {
+
   if (
     !ctx ||
     history.value.length === 0
@@ -1047,18 +1161,21 @@ const undo = () => {
     return
   }
 
+
   /*
-   * 마지막 상태 제거
+   * 현재 상태 제거
    */
   history.value.pop()
 
+
   /*
    * 이전 상태가 없으면
-   * 빈 캔버스로 돌아간다.
+   * 완전히 빈 상태
    */
   if (
     history.value.length === 0
   ) {
+
     ctx.clearRect(
       0,
       0,
@@ -1067,26 +1184,32 @@ const undo = () => {
     )
 
     isEmpty.value = true
+
     signatureImage.value = ''
 
     return
   }
+
 
   const previous =
     history.value[
       history.value.length - 1
     ]
 
+
   const image =
     new Image()
 
+
   image.onload = () => {
+
     ctx.clearRect(
       0,
       0,
       WIDTH,
       HEIGHT
     )
+
 
     ctx.drawImage(
       image,
@@ -1096,10 +1219,12 @@ const undo = () => {
       HEIGHT
     )
 
+
     isEmpty.value = false
 
     updatePreview()
   }
+
 
   image.src = previous
 }
@@ -1108,11 +1233,12 @@ const undo = () => {
 /* =========================================================
  * 전체 지우기
  *
- * 현재 서명은 Undo 가능하도록
- * 지우기 직전 상태를 history에 저장한다.
+ * 지우기 직전 상태를 저장하므로
+ * Undo로 복구 가능
  * ======================================================= */
 
 const clearCanvas = () => {
+
   if (
     !ctx ||
     isEmpty.value
@@ -1120,13 +1246,15 @@ const clearCanvas = () => {
     return
   }
 
+
   /*
-   * 현재 서명 저장
+   * 현재 상태 저장
    */
   saveHistory()
 
+
   /*
-   * 화면 삭제
+   * 전체 삭제
    */
   ctx.clearRect(
     0,
@@ -1135,6 +1263,7 @@ const clearCanvas = () => {
     HEIGHT
   )
 
+
   isEmpty.value = true
 
   signatureImage.value = ''
@@ -1142,13 +1271,21 @@ const clearCanvas = () => {
 
 
 /* =========================================================
- * 미리보기
+ * Preview
  * ======================================================= */
 
 const updatePreview = () => {
+
   if (!canvas.value) {
     return
   }
+
+
+  if (isEmpty.value) {
+    signatureImage.value = ''
+    return
+  }
+
 
   signatureImage.value =
     canvas.value.toDataURL(
@@ -1162,6 +1299,7 @@ const updatePreview = () => {
  * ======================================================= */
 
 const downloadSignature = () => {
+
   if (
     !canvas.value ||
     isEmpty.value
@@ -1169,28 +1307,32 @@ const downloadSignature = () => {
     return
   }
 
-  /*
-   * 투명 PNG
-   */
+
   const image =
     canvas.value.toDataURL(
       'image/png'
     )
 
+
   const link =
     document.createElement('a')
+
 
   link.download =
     'my-signature.png'
 
+
   link.href =
     image
+
 
   document.body.appendChild(
     link
   )
 
+
   link.click()
+
 
   document.body.removeChild(
     link
@@ -1199,12 +1341,13 @@ const downloadSignature = () => {
 
 
 /* =========================================================
- * 펜 색상 변경
+ * 색상 변경
  * ======================================================= */
 
 watch(
   lineColor,
   () => {
+
     if (!ctx) {
       return
     }
@@ -1229,10 +1372,13 @@ onMounted(() => {
  * ======================================================= */
 
 onBeforeUnmount(() => {
+
   window.removeEventListener(
     'resize',
     updatePreview
   )
+
 })
+
 </script>
 ```
