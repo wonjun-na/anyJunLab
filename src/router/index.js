@@ -24,6 +24,11 @@ const router = createRouter({
       name: 'addEng',
       component: () => import('../views/AddressEnglishConverter.vue'),
     },
+    {
+      path: '/sign',
+      name: 'sign',
+      component: () => import('../views/SignImageView.vue'),
+    },
   ],
 })
 
