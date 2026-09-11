@@ -28,6 +28,7 @@
         <v-list-item prepend-icon="mdi-cash-multiple" title="DSR/DTI/LTV" value="ddl" to="/ddl" rounded="lg"/>
         <v-list-item prepend-icon="mdi-home" title="주소 영문 변환기" value="addEng" to="/addEng" rounded="lg"/>
         <v-list-item prepend-icon="mdi-draw-pen" title="사인만들기" value="sign" to="/sign" rounded="lg"/>
+        <v-list-item prepend-icon="mdi-billiards" title="로또 추첨기" value="lotto" to="/lotto" rounded="lg"/>
       </v-list>
     </v-navigation-drawer>
 

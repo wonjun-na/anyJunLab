@@ -29,6 +29,11 @@ const router = createRouter({
       name: 'sign',
       component: () => import('../views/SignImageView.vue'),
     },
+    {
+      path: '/lotto',
+      name: 'lotto',
+      component: () => import('../views/lottoView.vue'),
+    },
   ],
 })
 
